@@ -12,8 +12,9 @@ from move_base_msgs.msg import MoveBaseActionResult
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # 세션 암호화용 비밀키
-robot_scheduling_queue = deque() #로봇의 행동을 담을 큐 (여러사람 작업 처리위해)
-is_with_person = False #로봇이 사람과 만나서 점유된 상태인지에 대한 플래그 변수
+task_queue = deque() #로봇의 행동을 담을 큐 (여러사람 작업 처리위해)
+summoner_queue = deque() #호출한 사람들을 ID 담아두는 리스트
+is_submit_done = False #로봇이 사람과 만나서 점유된 상태인지에 대한 플래그 변수
 cnt = 0
 # 예시 사용자 데이터 (실제로는 DB에서 데이터를 가져오거나 다른 방법을 사용)
 users = {
@@ -25,28 +26,21 @@ users = {
 
 #얘는 계속해서 호출된다는 것을 잊지말자
 def robot_scheduler(msg): 
-    global is_with_person
+    global is_submit_done
     if msg.data==True: #robot_moving_status_publisher 노드에서 받아온 로봇 움직임 값 (status 1이면 True, 3이면 False)
         rospy.loginfo("로봇이 이동중입니다.")
-    else:
+    elif task_queue and is_submit_done:
         # 로봇이 이동 중이지 않으면 큐를 확인하고 작업을 처리
-        if can_robot_go():
-            position = robot_scheduling_queue.popleft()
-            is_with_person = True
-            move_pub.publish(position)  # 로봇에 이동 명령을 발행
-            rospy.loginfo("큐에 담겨있던 이동명령을 발행합니다.")
-        else:
-            # 큐가 비었으면 대기
-            rospy.loginfo("큐가 비어있습니다.")
+        position = task_queue.popleft()
+        move_pub.publish(position)  # 로봇에 이동 명령을 발행
+        rospy.loginfo("큐에 담겨있던 이동명령을 발행합니다.")
+        is_submit_done = False
+    else:
+        # 큐가 비었으면 대기
+        rospy.loginfo("큐가 비어있습니다.")
 
 #-------------------------- 콜백 함수 정의부 ------------------------#
 
-def can_robot_go():
-    global is_with_person
-     #robot_scheduling_queue가 1개라도 채워져있고, 로봇이 사람과 만나지 않은 경우 True 반환
-    if robot_scheduling_queue and not is_with_person:
-        return True
-    return False
 
 
 rospy.init_node('flask_server', anonymous=True)
@@ -113,8 +107,8 @@ def get_text():
 
 @app.route('/item_received', methods=['GET'])
 def item_received():
-    global is_with_person
-    is_with_person = False
+    global is_submit_done
+    is_submit_done = True
     return redirect(url_for('index'))
 
 @app.route('/redirect_to_index', methods=['GET'])
@@ -126,7 +120,6 @@ def redirect_to_index():
 # 아래 함수가 실행되어 호출자의 좌표가 큐에 쌓임
 @app.route('/summon_robot', methods=['POST'])
 def summon_robot():
-    global is_with_person
     global cnt
     try:
         if 'user_id' not in session:
@@ -150,7 +143,8 @@ def summon_robot():
             cnt +=1
         else:
             # 첫번째 호출 무지성 이동후부터는 얘가 실행됨. 호출자가 '호출'누를때마다 호출자의 좌표가 큐에쌓임.
-            robot_scheduling_queue.appendleft(position) 
+            task_queue.appendleft(position)
+            summoner_queue.append(position) 
         return redirect(url_for('ROS_robot_is_summoned'))
 
     except Exception as e:
@@ -164,7 +158,7 @@ def ROS_robot_is_summoned():
 #user가 물건 다 담고 서랍 닫은후에, 목적지 좌표도 알려주면 실행되는 라우팅
 @app.route('/submit_text', methods=['POST'])
 def submit_text():
-    global is_with_person
+    global is_submit_done
     try:
         user_text = request.form.get('user_text', '')  # 사용자가 입력한 텍스트 (ID)
 
@@ -183,10 +177,9 @@ def submit_text():
         position.pose.orientation.w = float(user_location['ori_w'])
         
 
-        #robot_scheduling_queue 의 오른쪽에 호출자가 원하는 배송 목적지의 좌표 정보가 담긴 position 객체를 넣어준다.
-        robot_scheduling_queue.append(position)
-        #이제 사람을 떠나니까 is_with_person은 False가 되야함.
-        is_with_person = False
+        #task_queue 의 오른쪽에 호출자가 원하는 배송 목적지의 좌표 정보가 담긴 position 객체를 넣어준다.
+        task_queue.append(position)
+        is_submit_done = True
         return redirect(url_for('index'))
 
     except Exception as e:
