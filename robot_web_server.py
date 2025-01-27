@@ -30,7 +30,7 @@ def robot_scheduler(msg): #웹서버랑 멀티스레드로 돌려야함.
         if robot_can_go():
             position = robot_scheduling_queue.popleft()
             move_pub.publish(position)  # 로봇에 이동 명령을 발행
-            rospy.loginfo(f"큐에 담겨있던 이동명령을 발행합니다.")
+            rospy.loginfo("큐에 담겨있던 이동명령을 발행합니다.")
         else:
             # 큐가 비었으면 대기
             rospy.loginfo("큐가 비어있습니다.")
