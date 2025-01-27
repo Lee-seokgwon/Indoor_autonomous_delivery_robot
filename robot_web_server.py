@@ -13,7 +13,7 @@ from move_base_msgs.msg import MoveBaseActionResult
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # 세션 암호화용 비밀키
 robot_scheduling_queue = deque()#로봇의 행동을 담을 큐 (여러사람 작업 처리위해)
-robot_waiting = False #사람이 물건 싣는 시간 기다리기 위한 플래그변수.
+is_with_person = False #로봇이 사람과 만나서 점유된 상태인지에 대한 플래그 변수
 # 예시 사용자 데이터 (실제로는 DB에서 데이터를 가져오거나 다른 방법을 사용)
 users = {
     'user1': {'password': generate_password_hash('password1'), 'location': {'pos_x': 0.0616436451674, 'pos_y': 1.57818627357, 'ori_z': 0.898063068045, 'ori_w': 0.439866713691}},
@@ -22,22 +22,24 @@ users = {
 
 #-------------------------- 콜백 함수 정의부 ------------------------#
 def robot_scheduler(msg): #웹서버랑 멀티스레드로 돌려야함.
-    global robot_waiting
+    global is_with_person
     if msg.data==True: #robot_moving_status_publisher 노드에서 받아온 로봇 움직/정지 상태값.
         rospy.loginfo("로봇이 이동중입니다. 이동명령 발행을 중지합니다.")
     else:
         # 로봇이 이동 중이지 않으면 큐를 확인하고 작업을 처리
-        if robot_can_go():
+        if can_robot_go():
             position = robot_scheduling_queue.popleft()
+            is_with_person = True
             move_pub.publish(position)  # 로봇에 이동 명령을 발행
             rospy.loginfo("큐에 담겨있던 이동명령을 발행합니다.")
         else:
             # 큐가 비었으면 대기
             rospy.loginfo("큐가 비어있습니다.")
 
-def robot_can_go():
-    global robot_waiting
-    if robot_scheduling_queue and not robot_waiting: #호출인 1명만 있을때는 무조건 True 반환해서 로봇 출발. (로봇이 정지상태일때)
+def can_robot_go():
+    global is_with_person
+     #robot_scheduling_queue가 1개라도 채워져있고, 로봇이 사람과 만나지 않은 경우 True 반환
+    if robot_scheduling_queue and not is_with_person:
         return True
     return False
 
@@ -107,14 +109,15 @@ def get_text():
 
 @app.route('/item_received', methods=['GET'])
 def item_received():
-    global robot_waiting
-    robot_waiting = False
+    global is_with_person
+    is_with_person = False
     return redirect(url_for('index'))
 
 
+#summon_robot으로 요청 보내면 실행되는 라우팅함수
 @app.route('/summon_robot', methods=['POST'])
 def summon_robot():
-    global robot_waiting
+    global is_with_person
     try:
         if 'user_id' not in session:
             raise ValueError('User ID not found in session.')
@@ -133,7 +136,6 @@ def summon_robot():
         position.pose.orientation.w = float(user_location['ori_w'])
         
         robot_scheduling_queue.appendleft(position) 
-        robot_waiting = True
         return redirect(url_for('ROS_robot_is_summoned'))
 
     except Exception as e:
@@ -146,7 +148,7 @@ def ROS_robot_is_summoned():
 
 @app.route('/submit_text', methods=['POST'])
 def submit_text():
-    global robot_waiting
+    global is_with_person
     try:
         user_text = request.form.get('user_text', '')  # 사용자가 입력한 텍스트 (ID)
 
@@ -163,8 +165,10 @@ def submit_text():
         position.pose.orientation.z = float(user_location['ori_z'])
         position.pose.orientation.w = float(user_location['ori_w'])
         
+
+        #robot_scheduling_queue 의 오른쪽에 호출자가 원하는 배송 목적지의 좌표 정보가 담긴 position 객체를 넣어준다.
         robot_scheduling_queue.append(position)
-        robot_waiting = False
+        is_with_person = False
         return redirect(url_for('index'))
 
     except Exception as e:
