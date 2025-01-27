@@ -15,7 +15,7 @@ app.secret_key = os.urandom(24)  # 세션 암호화용 비밀키
 task_queue = deque() #로봇의 행동을 담을 큐 (여러사람 작업 처리위해)
 summoner_queue = deque() #호출한 사람들을 ID 담아두는 리스트
 is_submit_done = False #로봇이 사람과 만나서 점유된 상태인지에 대한 플래그 변수
-cnt = 0
+cnt = 1
 # 예시 사용자 데이터 (실제로는 DB에서 데이터를 가져오거나 다른 방법을 사용)
 users = {
     'user1': {'password': generate_password_hash('password1'), 'location': {'pos_x': 0.0616436451674, 'pos_y': 1.57818627357, 'ori_z': 0.898063068045, 'ori_w': 0.439866713691}},
@@ -111,6 +111,10 @@ def item_received():
     is_submit_done = True
     return redirect(url_for('index'))
 
+@app.route('/ROS_no_more_summon', methods=['GET'])
+def ROS_no_more_summon():
+    return render_template('ROS_no_more_summon.html')
+
 @app.route('/redirect_to_index', methods=['GET'])
 def redirect_to_index():
     return redirect(url_for('index'))
@@ -122,6 +126,8 @@ def redirect_to_index():
 def summon_robot():
     global cnt
     try:
+        if cnt == 3:
+            summoner_queue = deque()
         if 'user_id' not in session:
             raise ValueError('User ID not found in session.')
 
@@ -138,13 +144,18 @@ def summon_robot():
         position.pose.orientation.z = float(user_location['ori_z'])
         position.pose.orientation.w = float(user_location['ori_w'])
         
-        if cnt == 0: #임시 땜방 셋업 - 일단 첫번째 호출로 무지성 이동시킴.
+        if cnt == 1: #임시 땜방 셋업 - 일단 첫번째 호출로 무지성 이동시킴.
             move_pub.publish(position)
+            summoner_queue.append(position)
             cnt +=1
         else:
             # 첫번째 호출 무지성 이동후부터는 얘가 실행됨. 호출자가 '호출'누를때마다 호출자의 좌표가 큐에쌓임.
-            task_queue.appendleft(position)
-            summoner_queue.append(position) 
+            if len(summoner_queue) == 2:
+                redirect(url_for('ROS_no_more_summon'))
+            else:
+                task_queue.appendleft(position)
+                summoner_queue.append(position)
+                cnt+=1 
         return redirect(url_for('ROS_robot_is_summoned'))
 
     except Exception as e:
