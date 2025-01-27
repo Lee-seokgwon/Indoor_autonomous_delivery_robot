@@ -3,6 +3,7 @@
 import rospy
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
+from actionlib_msgs.msg import GoalStatusArray
 
 class RobotMovementStatus:
     def __init__(self):
@@ -12,31 +13,34 @@ class RobotMovementStatus:
         self.move_pub = rospy.Publisher('/robot_moving_status', Bool, queue_size=1)
 
         #odom 토픽을 구독하여 odom값을 받아온다
-        self.sub_odom = rospy.Subscriber('/odom', Odometry, self.odom_callback)
+        self.status = rospy.Subscriber('/move_base/status', GoalStatusArray, self.status_callback)
 
-    def odom_callback(self, msg):
+    def status_callback(self, msg):
         """
-        로봇의 위치 정보를 확인하여 이동 여부를 판단하고 퍼블리시
+        로봇의 이동 상태 정보를 받아서 퍼블리시시
         """
-        velocity = msg.twist.twist.linear  # 속도 정보를 확인
-        if velocity.x != 0 or velocity.y != 0 or velocity.z != 0:
-            # 로봇이 이동 중이면
-            if not self.robot_moving:
-                self.robot_moving = True
+        if msg.status_list:  # 상태 리스트가 비어있지 않을 때만 처리
+            status = msg.status_list[0].status
+            if status == 1:
+                rospy.loginfo("로봇이 목적지로 정상적으로 이동 중 입니다.")
                 self.move_pub.publish(True)
-                rospy.loginfo("로봇이 움직이고 있습니다.")
+            elif status == 2:
+                rospy.loginfo("로봇의 기존 목적지가 취소 당했습니다. 별도의 publish 하지않겠습니다.")
+            elif status == 3:
+                rospy.loginfo("로봇이 목적지에 정상적으로 도착했습니다다")
+                self.move_pub.publish(False)
+            elif status == 4:
+                rospy.loginfo("목적지에 도착을 실패하였습니다.")
         else:
-            # 로봇이 멈추면
-            self.robot_moving = False
-            self.move_pub.publish(False)
-            rospy.loginfo("로봇이 멈췄습니다.")
+            rospy.loginfo("status가 1,2,3,4에 속하지 않습니다. 다른 status 입니다.")
+
 
 if __name__ == '__main__':
 
     #노드 이름을 robot_movement_status_node 로 설정 및 노드 초기화
     rospy.init_node('robot_movement_status_node', anonymous=True)
     
-    #RobotMovementStatus 의 객체 생성성
+    #RobotMovementStatus 의 객체 생성
     movement_status = RobotMovementStatus()
 
     rospy.loginfo("로봇 움직임 상태 퍼블리시 노드 시작")
