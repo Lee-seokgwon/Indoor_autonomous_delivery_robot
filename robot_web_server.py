@@ -141,10 +141,11 @@ def summon_robot():
         position.pose.orientation.z = float(user_location['ori_z'])
         position.pose.orientation.w = float(user_location['ori_w'])
         
-        if cnt == 0: #임시 땜방 셋업
+        if cnt == 0: #임시 땜방 셋업 - 일단 첫번째 호출로 무지성 이동시킴.
             move_pub.publish(position)
             cnt +=1
         else:
+            # 첫번째 호출 무지성 이동후부터는 얘가 실행됨. 호출자가 '호출'누를때마다 호출자의 좌표가 큐에쌓임.
             robot_scheduling_queue.appendleft(position) 
         return redirect(url_for('ROS_robot_is_summoned'))
 
