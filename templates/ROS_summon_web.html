@@ -50,12 +50,12 @@
         }
     </style>
 </head>
-<script src="{{ url_for('static', filename='js/ROS_script.js') }}"></script>
+<script src="../static/js/ROS_script.js"></script>
 <body>
     <div class="container">
         <h1>로봇 호출</h1>
         <h3>버튼을 클릭하여 로봇 호출:</h3>
-        <form method="POST" action="{{ url_for('summon_robot') }}">
+        <form>
             <button type="submit" id="moveRobotButton">로봇 호출</button>
         </form>
     </div>

@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (button) {
         button.addEventListener('click', function() {
             // 서버에 POST 요청 보내기
+            console.log("fetch 명령 보냈음!!!!!!!!!!!!!!!!!!!!!!!");
             fetch('/summon_robot', {
                 method: 'POST',
                 headers: {
