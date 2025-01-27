@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("DOM fully loaded");
+    console.log("HTML문서가 완전히 로드되었습니다.");
     // moveRobotButton 클릭 이벤트 처리
     var button = document.getElementById('moveRobotButton');
 

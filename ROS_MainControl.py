@@ -2,7 +2,7 @@
 #!/usr/bin/env python
 
 #이 코드에서 로봇의 이동제어를 담당 (이동하면서 발생하는 이벤트 등도 처리)
-#mcu와 통신해서 mcu제어시키는 코드도 여기다가 적으면 될듯
+
 import rospy
 from geometry_msgs.msg import PoseStamped
 from move_base_msgs.msg import MoveBaseAction, MoveBaseActionResult
@@ -11,7 +11,7 @@ import os
 from sensor_msgs.msg import Image
 import time
 import threading
-#esp8266에 HTTP요청을 보내기 위한 모듈 01/16 , 젯슨 request 모듈 pip 설치해야할수도 있음
+#esp8266에 HTTP요청을 보내기 위한 라이브러리리
 import requests
 import json
 from collections import deque
@@ -20,17 +20,23 @@ import webbrowser
 class MainControl():
     def __init__(self):
         
-        # 예시 사용자 데이터 (실제로는 DB에서 데이터를 가져오거나 다른 방법을 사용)
+        # 객체의 users 변수에 호출자의 위치 저장 (실제로는 DB에서 데이터를 가져오거나 다른 방법을 사용)
         self.users = {
         'user1': {'location': {'pos_x': 0.0616436451674, 'pos_y': 1.57818627357, 'ori_z': 0.898063068045, 'ori_w': 0.439866713691}},
         'user2': {'location': {'pos_x': -0.0987980738282, 'pos_y': 0.411867380142, 'ori_z': 0.315396049112, 'ori_w': 0.948960132042}},
         }
         self.position = PoseStamped()
         self.current_goal = PoseStamped()
+
         self.sub_position = rospy.Subscriber("/summon",PoseStamped,self.get_destination)
+
+        #Navigation Stack에 활용되는 토픽으로, 이 토픽으로 좌표 보내면 로봇이 그 좌표로 움직인다.
         self.pub_goal = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=10)
+
+        ##Navigation Stack에 활용되는 토픽으로, 로봇의 도착 상태 (성공,실패) 등을 이 토픽으로 수신받는다.
         self.sub_result = rospy.Subscriber("/move_base/result", MoveBaseActionResult, self.callback, queue_size=1)
-        self.move_pub = rospy.Publisher('/robot_moving_status', Bool, queue_size=1)
+
+
         self.esp_command_pub = rospy.Publisher("/esp8266_command", String, queue_size=10)
        #------------------------로봇 호출 후 수령인 ID 받기 위해 웹서버로 request--------------#
         self.server_url = "http://localhost:5000"  # 젯슨웹 서버 주소
@@ -105,7 +111,7 @@ class MainControl():
             # 목표 도착 시 esp8266제어 명령 전송
             rospy.loginfo("Robot has reached the destination.")
 
-            webbrowser.open('http://localhost:5000/ROS_mode_select')
+            webbrowser.open('http://localhost:5000/')
 
             self.esp_command_pub.publish("Arrival") #esp8266 제어노드에에 작동명령 publish
         else:
@@ -132,11 +138,14 @@ class MainControl():
 
 if __name__ == '__main__':
     try:
+        #노드의 이름을 main_control로 설정 및 노드 초기화
         rospy.init_node('main_control', anonymous=True)
 
+        #MainControl 객체 생성
         main_control = MainControl()
 
+        #지금 부터 스레드는 ros pub,sub 관련 event loop만 돌며 계속해서 pub,sub을 동작시킨다.
         rospy.spin()
 
     except rospy.ROSInterruptException:
-        rospy.loginfo("Node terminated")
+        rospy.loginfo("ROS_MainControl 노드 동작 중지")
