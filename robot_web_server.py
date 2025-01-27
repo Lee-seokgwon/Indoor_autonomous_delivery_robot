@@ -12,8 +12,9 @@ from move_base_msgs.msg import MoveBaseActionResult
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # 세션 암호화용 비밀키
-robot_scheduling_queue = deque()#로봇의 행동을 담을 큐 (여러사람 작업 처리위해)
+robot_scheduling_queue = deque() #로봇의 행동을 담을 큐 (여러사람 작업 처리위해)
 is_with_person = False #로봇이 사람과 만나서 점유된 상태인지에 대한 플래그 변수
+cnt = 0
 # 예시 사용자 데이터 (실제로는 DB에서 데이터를 가져오거나 다른 방법을 사용)
 users = {
     'user1': {'password': generate_password_hash('password1'), 'location': {'pos_x': 0.0616436451674, 'pos_y': 1.57818627357, 'ori_z': 0.898063068045, 'ori_w': 0.439866713691}},
@@ -21,10 +22,10 @@ users = {
 }
 
 #-------------------------- 콜백 함수 정의부 ------------------------#
-def robot_scheduler(msg): #웹서버랑 멀티스레드로 돌려야함.
+def robot_scheduler(msg): 
     global is_with_person
-    if msg.data==True: #robot_moving_status_publisher 노드에서 받아온 로봇 움직/정지 상태값.
-        rospy.loginfo("로봇이 이동중입니다. 이동명령 발행을 중지합니다.")
+    if msg.data==True: #robot_moving_status_publisher 노드에서 받아온 로봇 움직임 값 (status 1이면 True, 3이면 False)
+        rospy.loginfo("로봇이 이동중입니다.")
     else:
         # 로봇이 이동 중이지 않으면 큐를 확인하고 작업을 처리
         if can_robot_go():
@@ -36,6 +37,8 @@ def robot_scheduler(msg): #웹서버랑 멀티스레드로 돌려야함.
             # 큐가 비었으면 대기
             rospy.loginfo("큐가 비어있습니다.")
 
+#-------------------------- 콜백 함수 정의부 ------------------------#
+
 def can_robot_go():
     global is_with_person
      #robot_scheduling_queue가 1개라도 채워져있고, 로봇이 사람과 만나지 않은 경우 True 반환
@@ -43,7 +46,6 @@ def can_robot_go():
         return True
     return False
 
-#-------------------------- 콜백 함수 정의부 ------------------------#
 
 rospy.init_node('flask_server', anonymous=True)
 move_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=1)
@@ -114,10 +116,12 @@ def item_received():
     return redirect(url_for('index'))
 
 
-#summon_robot으로 요청 보내면 실행되는 라우팅함수
+# user가 웹에서 호출 버튼 누름 -> js가 /summon_robot으로 요청 보냄, 호출자의 좌표와 함께께 ->
+# 아래 함수가 실행됨
 @app.route('/summon_robot', methods=['POST'])
 def summon_robot():
     global is_with_person
+    global cnt
     try:
         if 'user_id' not in session:
             raise ValueError('User ID not found in session.')
@@ -135,7 +139,11 @@ def summon_robot():
         position.pose.orientation.z = float(user_location['ori_z'])
         position.pose.orientation.w = float(user_location['ori_w'])
         
-        robot_scheduling_queue.appendleft(position) 
+        if cnt == 0: #임시 땜방 셋업
+            move_pub.publish(position)
+            cnt +=1
+        else:
+            robot_scheduling_queue.appendleft(position) 
         return redirect(url_for('ROS_robot_is_summoned'))
 
     except Exception as e:
