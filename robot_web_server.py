@@ -29,6 +29,7 @@ def robot_scheduler(msg): #웹서버랑 멀티스레드로 돌려야함.
         # 로봇이 이동 중이지 않으면 큐를 확인하고 작업을 처리
         if robot_can_go():
             position = robot_scheduling_queue.popleft()
+            robot_waiting = True
             move_pub.publish(position)  # 로봇에 이동 명령을 발행
             rospy.loginfo("큐에 담겨있던 이동명령을 발행합니다.")
         else:
@@ -133,7 +134,6 @@ def summon_robot():
         position.pose.orientation.w = float(user_location['ori_w'])
         
         robot_scheduling_queue.appendleft(position) 
-        robot_waiting = True
         return redirect(url_for('ROS_robot_is_summoned'))
 
     except Exception as e:
