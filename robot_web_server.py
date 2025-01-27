@@ -22,6 +22,8 @@ users = {
 }
 
 #-------------------------- 콜백 함수 정의부 ------------------------#
+
+#얘는 계속해서 호출된다는 것을 잊지말자
 def robot_scheduler(msg): 
     global is_with_person
     if msg.data==True: #robot_moving_status_publisher 노드에서 받아온 로봇 움직임 값 (status 1이면 True, 3이면 False)
@@ -116,8 +118,8 @@ def item_received():
     return redirect(url_for('index'))
 
 
-# user가 웹에서 호출 버튼 누름 -> js가 /summon_robot으로 요청 보냄, 호출자의 좌표와 함께께 ->
-# 아래 함수가 실행됨
+# user가 웹에서 호출 버튼 누름 -> js가 /summon_robot으로 요청 보냄, 호출자의 좌표와 함께 ->
+# 아래 함수가 실행되어 호출자의 좌표가 큐에 쌓임
 @app.route('/summon_robot', methods=['POST'])
 def summon_robot():
     global is_with_person
@@ -154,6 +156,7 @@ def summon_robot():
 def ROS_robot_is_summoned():
     return render_template('ROS_robot_is_summoned.html')   
 
+#user가 물건 다 담고 서랍 닫은후에, 목적지 좌표도 알려주면 실행되는 라우팅
 @app.route('/submit_text', methods=['POST'])
 def submit_text():
     global is_with_person
@@ -165,6 +168,7 @@ def submit_text():
         
         if not user_location:
             return jsonify({"status": "failure", "message": "User not found"}), 404  # 사용자 찾을 수 없는 경우
+        #목적지 좌표로 position 객체 초기화
         position = PoseStamped()
         position.header.frame_id = "map"
         position.header.stamp = rospy.Time.now()
@@ -176,6 +180,7 @@ def submit_text():
 
         #robot_scheduling_queue 의 오른쪽에 호출자가 원하는 배송 목적지의 좌표 정보가 담긴 position 객체를 넣어준다.
         robot_scheduling_queue.append(position)
+        #이제 사람을 떠나니까 is_with_person은 False가 되야함.
         is_with_person = False
         return redirect(url_for('index'))
 
