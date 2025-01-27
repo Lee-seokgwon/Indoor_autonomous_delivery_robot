@@ -126,8 +126,7 @@ def redirect_to_index():
 def summon_robot():
     global cnt
     try:
-        if cnt == 3:
-            summoner_queue = deque()
+        
         if 'user_id' not in session:
             raise ValueError('User ID not found in session.')
 
