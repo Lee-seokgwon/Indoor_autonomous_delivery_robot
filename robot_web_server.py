@@ -119,7 +119,7 @@ def summon_robot():
         if 'user_id' not in session:
             raise ValueError('User ID not found in session.')
 
-        user_id = session['user_id']  # 자바스크립트에서 전송된 user_id
+        user_id = session['user_id'] 
         user_location = users.get(user_id, {}).get('location')  # 해당 사용자의 위치 찾기
 
         if not user_location:
