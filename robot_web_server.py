@@ -115,6 +115,10 @@ def item_received():
     is_with_person = False
     return redirect(url_for('index'))
 
+@app.route('/redirect_to_index', methods=['GET'])
+def redirect_to_index():
+    return redirect(url_for('index'))
+
 
 # user가 웹에서 호출 버튼 누름 -> js가 /summon_robot으로 요청 보냄, 호출자의 좌표와 함께께 ->
 # 아래 함수가 실행됨
