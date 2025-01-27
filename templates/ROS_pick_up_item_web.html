@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>물건 수령</title>
+    <link rel="stylesheet" href="https://unpkg.com/picocss@1.5.0/dist/pico.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f3f3f3;
+            color: #333;
+        }
+
+        h1 {
+            font-size: 2em;
+            color: #007BFF;
+            margin-bottom: 20px;
+        }
+
+        #tagging-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            margin: 20px 0;
+            border: 2px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f7f7f7;
+        }
+
+        .card-icon {
+            position: absolute;
+            top: 30%;
+            width: 100px;
+            height: 100px;
+            background-color: #0044cc; /* 애니메이션 색상 수정 */
+            border-radius: 50%;
+            animation: taggingAnimation 2s infinite ease-in-out;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        @keyframes taggingAnimation {
+            0% {
+                top: 30%;
+                transform: scale(1);
+            }
+            50% {
+                top: 50%;
+                transform: scale(1.2);
+            }
+            100% {
+                top: 30%;
+                transform: scale(1);
+            }
+        }
+
+        .instruction-text {
+            font-size: 18px;
+            margin: 20px;
+            color: #333;
+        }
+
+        .button-container {
+            margin-top: 30px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .cancel-button {
+            background-color: #dc3545;
+        }
+
+        .cancel-button:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>사원증을 태그하고 물품을 수령하세요</h1>
+
+    <div id="tagging-container">
+        <div class="card-icon"></div>
+    </div>
+
+    <p class="instruction-text">사원증을 태그하여 잠금장치 해제 후 물품을 수령해 주세요.</p>
+
+    <div class="button-container">
+        <!-- 물품 수령 완료 버튼 -->
+        <form action="{{ url_for('item_received') }}" method="POST">
+            <button type="submit">수령 완료</button>
+        </form>
+    </div>
+
+</body>
+</html>

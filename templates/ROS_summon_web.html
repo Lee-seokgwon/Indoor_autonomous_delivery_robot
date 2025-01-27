@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Movement</title>
+    <link rel="stylesheet" href="https://unpkg.com/picocss@1.5.0/dist/pico.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #80d6ff, #00aaff); /* 밝은 파란색 그라데이션 */
+            color: white;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 500px;
+            padding: 40px;
+            background-color: rgba(255, 255, 255, 0.1); /* 투명한 배경 */
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        h3 {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 30px;
+            font-size: 1.2em;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #4e90ff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #3b76cc;
+        }
+    </style>
+</head>
+<script src="{{ url_for('static', filename='js/ROS_script.js') }}"></script>
+<body>
+    <div class="container">
+        <h1>로봇 호출</h1>
+        <h3>버튼을 클릭하여 로봇 호출:</h3>
+        <form method="POST" action="{{ url_for('summon_robot') }}">
+            <button type="submit" id="moveRobotButton">로봇 호출</button>
+        </form>
+    </div>
+</body>
+</html>
