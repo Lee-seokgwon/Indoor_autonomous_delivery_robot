@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import sqlite3
 import matplotlib.pyplot as plt
 import pandas as pd
