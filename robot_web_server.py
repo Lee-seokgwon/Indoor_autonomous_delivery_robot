@@ -35,9 +35,14 @@ def robot_scheduler(msg):
         move_pub.publish(position)  # 로봇에 이동 명령을 발행
         rospy.loginfo("큐에 담겨있던 이동명령을 발행합니다.")
         is_submit_done = False
+    elif not task_queue and is_submit_done and summoner_queue:
+        # 로봇이 대기 상태이고, 모든 작업이 끝났으며, summoner_queue 초기화 조건을 만족할 때
+        summoner_queue.clear()
+        is_submit_done = False #마지막 수령인이 수령확인후 True가 되버리니까, False로 돌려줘야함함
+        rospy.loginfo("모든 작업이 완료되었습니다. summoner_queue를 초기화합니다.")
     else:
         # 큐가 비었으면 대기
-        rospy.loginfo("큐가 비어있습니다.")
+        rospy.loginfo("로봇이 submit 대기중입니다.")
 
 #-------------------------- 콜백 함수 정의부 ------------------------#
 
@@ -153,9 +158,8 @@ def summon_robot():
                 redirect(url_for('ROS_no_more_summon'))
             else:
                 task_queue.appendleft(position)
-                summoner_queue.append(position)
-                cnt+=1 
-        return redirect(url_for('ROS_robot_is_summoned'))
+                summoner_queue.append(position) 
+        return redirect(url_for('summon_robot_web_open'))
 
     except Exception as e:
         print("Error: {}".format(e))  # 서버에서 발생한 오류를 로그로 출력
