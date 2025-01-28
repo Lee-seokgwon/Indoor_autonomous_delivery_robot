@@ -71,7 +71,7 @@ def ros_spin():
 def index():
     if 'user_id' in session:
         user_id = session['user_id']
-        return render_template('ROS_mode_select.html', user_id=user_id, location=users[user_id]['location'])
+        return render_template('ROS_mode_select.html', user_id=user_id)
     else:
         return redirect(url_for('login'))
 
@@ -89,7 +89,9 @@ def verify_user_credentials(user_id, password):
 
     # 사용자 존재 여부 및 비밀번호 검증
     if user is None:
+        rospy.loginfo("user가 잘못된 id 혹은 password를 입력했습니다.")
         return False  # 사용자가 존재하지 않음
+    rospy.loginfo("user가 로그인에 성공하였습니다!.")
     stored_password = user[0]
     return stored_password == password  # 비밀번호 비교 (평문 저장 기준)
 
