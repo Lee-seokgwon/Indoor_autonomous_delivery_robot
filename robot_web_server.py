@@ -208,12 +208,11 @@ def submit_text():
         position.pose.orientation.w = coords[3]
 
         # PoseStamped 객체 정보 출력 (f-string 대신 .format() 사용)
-        rospy.loginfo("이름: {}, 부서: {}, 좌표: (x: {}, y: {}, z: {}, w: {})".format(
+        rospy.loginfo("서버의 DB 조회 성공 !!! 이름: {}, 부서: {}, 좌표: (x: {}, y: {}, z: {}, w: {})".format(
             name, department, coords[0], coords[1], coords[2], coords[3]))
 
         ## 이 부분 que에 append 하는거 넣어야함. 
 
-        is_submit_done = True
 
         # 리디렉션 URL을 포함하여 응답
         return jsonify({
