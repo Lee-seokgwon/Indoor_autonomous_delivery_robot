@@ -110,11 +110,11 @@ def pick_up_item_web_open():
 
 @app.route('/redirect_get_text_web', methods=['GET'])
 def redirect_get_text_web():
-    return redirect(url_for('get_text'))
+    return redirect(url_for('get_recipients_name'))
 
-@app.route('/get_text', methods=['GET']) 
+@app.route('/get_recipients_name', methods=['GET']) 
 def get_text():
-    return render_template('get_text.html')
+    return render_template('get_recipients_name.html')
 
 @app.route('/item_received', methods=['GET'])
 def item_received():
@@ -207,10 +207,15 @@ def submit_text():
         position.pose.orientation.z = coords[2]
         position.pose.orientation.w = coords[3]
 
-        # PoseStamped 객체 정보 출력 (f-string 대신 .format() 사용)
-        rospy.loginfo("서버의 DB 조회 성공 !!! 이름: {}, 부서: {}, 좌표: (x: {}, y: {}, z: {}, w: {})".format(
-            name, department, coords[0], coords[1], coords[2], coords[3]))
+        # position 객체에서 x, y, z, w 값을 추출하여 로그 출력
+        x = position.pose.position.x
+        y = position.pose.position.y
+        z = position.pose.orientation.z
+        w = position.pose.orientation.w
 
+        rospy.loginfo("서버의 DB 조회 성공 !!! 이름: {}, 부서: {}, 좌표: (x: {}, y: {}, z: {}, w: {})".format(
+            name, department, x, y, z, w))
+        
         ## 이 부분 que에 append 하는거 넣어야함. 
 
         # 리디렉션 URL을 포함하여 응답
