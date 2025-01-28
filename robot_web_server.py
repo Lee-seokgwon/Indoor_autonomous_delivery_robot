@@ -88,7 +88,7 @@ def login():
             return redirect(url_for('index'))  # 로그인 후 메인 페이지로 리디렉션
         else:
             return 'Invalid credentials', 401  # 로그인 실패
-
+    rospy.loginfo("로그인하지 않은 유저가 서버에 요청을 보냈습니다. 로그인 페이지를 띄워주겠습니다.")
     return render_template('ROS_login.html')  # 로그인 페이지로 이동
 
 
