@@ -226,7 +226,7 @@ def submit_text():
                 'ori_w': coords[3]
             },
             'message': '좌표가 정상적으로 초기화되었습니다.',
-            'redirect_url': url_for('success')  # 리디렉션 URL
+            'redirect_url': url_for('index')  # 리디렉션 URL
         })
         
 
