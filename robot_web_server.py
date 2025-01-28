@@ -178,6 +178,7 @@ def submit_text():
 
     try:
         # 직원 정보 조회
+        # employees 테이블에서 이름이 ? 인 사람의 department(부서)를 선택하겠다.
         cursor.execute("SELECT department FROM employees WHERE name = ?", (name,))
         
         employee = cursor.fetchone()
@@ -190,6 +191,7 @@ def submit_text():
         department = employee[0]
 
         # 부서 좌표 정보 조회
+        # departments 테이블에서 부서가 ? 인 사람의 x,y,z,w를 선택하겠다.
         cursor.execute("SELECT pos_x, pos_y, ori_z, ori_w FROM departments WHERE department = ?", (department,))
         coords = cursor.fetchone()
 

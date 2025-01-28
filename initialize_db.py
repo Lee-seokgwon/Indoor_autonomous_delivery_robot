@@ -26,10 +26,12 @@ def initialize_database():
     cursor.execute('''DROP TABLE IF EXISTS departments''')
     cursor.execute('''DROP TABLE IF EXISTS employee_with_coordinates''')  # 새로운 테이블 삭제
 
-    # 직원 테이블 생성
+    # 직원 테이블 생성 (id와 password 추가)
     cursor.execute(''' 
         CREATE TABLE IF NOT EXISTS employees (
-            name TEXT PRIMARY KEY,
+            id TEXT PRIMARY KEY,
+            password TEXT NOT NULL,
+            name TEXT NOT NULL,
             department TEXT NOT NULL
         )
     ''')
@@ -57,18 +59,18 @@ def initialize_database():
         )
     ''')
 
-    # 직원 데이터 삽입
+    # 직원 데이터 삽입 (id와 password 포함, 평문 비밀번호 저장)
     employees = [
-        ('jaeyun', 'Developing'),
-        ('seokkwon', 'Developing'),
-        ('kyungbin', 'Marketing'),
-        ('doyun', 'R&D'),
-        ('seoyun', 'R&D')
+        ('user1', 'password1', 'jaeyun', 'Developing'),
+        ('user2', 'password2', 'seokkwon', 'Developing'),
+        ('user3', 'password3', 'kyungbin', 'Marketing'),
+        ('user4', 'password4', 'doyun', 'R&D'),
+        ('user5', 'password5', 'seoyun', 'R&D')
     ]
 
     cursor.executemany('''
-        INSERT OR IGNORE INTO employees (name, department)
-        VALUES (?, ?)
+        INSERT OR IGNORE INTO employees (id, password, name, department)
+        VALUES (?, ?, ?, ?)
     ''', employees)
 
     # 부서 데이터 삽입
@@ -102,36 +104,57 @@ def display_database():
     """
     conn = sqlite3.connect(DB_PATH)
 
-    # 직원 데이터 조회
+    # 직원 데이터 조회 (id와 password 포함)
     employees_df = pd.read_sql_query("SELECT * FROM employees", conn)
 
     # 부서 데이터 조회
     departments_df = pd.read_sql_query("SELECT * FROM departments", conn)
 
     # 직원-부서-좌표 데이터를 조회
-    employee_with_coordinates_df = pd.read_sql_query("SELECT * FROM employee_with_coordinates", conn)
+    employee_with_coordinates_df = pd.read_sql_query('''
+        SELECT e.id, e.password, e.name, e.department, d.pos_x, d.pos_y, d.ori_z, d.ori_w
+        FROM employees e
+        JOIN departments d ON e.department = d.department
+    ''', conn)
 
     conn.close()
 
-    # Figure 생성
-    fig, ax = plt.subplots(1, 3, figsize=(21, 6))  # 1행 3열의 서브플롯 생성
+    # Figure 생성 (세 개의 행에 각 테이블을 표시)
+    fig, ax = plt.subplots(3, 1, figsize=(14, 18))  # 3행 1열의 서브플롯 생성
 
     # 직원 테이블을 첫 번째 subplot에 표시
     ax[0].axis('tight')
     ax[0].axis('off')
-    ax[0].table(cellText=employees_df.values, colLabels=employees_df.columns, loc='center')
+    table1 = ax[0].table(cellText=employees_df.values, colLabels=employees_df.columns, loc='center')
+    table1.auto_set_font_size(False)  # 폰트 크기 자동 조정 해제
+    table1.set_fontsize(14)  # 원하는 폰트 크기 설정
+    table1.auto_set_column_width(col=list(range(len(employees_df.columns))))  # 열 너비 자동 설정
+    for key, cell in table1.get_celld().items():
+        cell.set_height(0.1)  # 셀 높이 설정
 
     # 부서 테이블을 두 번째 subplot에 표시
     ax[1].axis('tight')
     ax[1].axis('off')
-    ax[1].table(cellText=departments_df.values, colLabels=departments_df.columns, loc='center')
+    table2 = ax[1].table(cellText=departments_df.values, colLabels=departments_df.columns, loc='center')
+    table2.auto_set_font_size(False)  # 폰트 크기 자동 조정 해제
+    table2.set_fontsize(14)  # 원하는 폰트 크기 설정
+    table2.auto_set_column_width(col=list(range(len(departments_df.columns))))  # 열 너비 자동 설정
+    for key, cell in table2.get_celld().items():
+        cell.set_height(0.1)  # 셀 높이 설정
 
     # 직원-부서-좌표 테이블을 세 번째 subplot에 표시
     ax[2].axis('tight')
     ax[2].axis('off')
-    ax[2].table(cellText=employee_with_coordinates_df.values, colLabels=employee_with_coordinates_df.columns, loc='center')
+    table3 = ax[2].table(cellText=employee_with_coordinates_df.values, colLabels=employee_with_coordinates_df.columns, loc='center')
+    table3.auto_set_font_size(False)  # 폰트 크기 자동 조정 해제
+    table3.set_fontsize(14)  # 원하는 폰트 크기 설정
+    table3.auto_set_column_width(col=list(range(len(employee_with_coordinates_df.columns))))  # 열 너비 자동 설정
+    for key, cell in table3.get_celld().items():
+        cell.set_height(0.1)  # 셀 높이 설정
 
     plt.suptitle("Employees, Departments, and Employee with Coordinates", fontsize=16)  # 제목 설정
+    plt.tight_layout()  # 서브플롯 간의 간격을 조정
+    plt.subplots_adjust(top=0.95)  # 상단 여백을 조정하여 제목과 테이블 간의 간격을 최적화
     plt.show()
 
 
