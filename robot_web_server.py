@@ -110,9 +110,9 @@ def pick_up_item_web_open():
 
 @app.route('/redirect_get_text_web', methods=['GET'])
 def redirect_get_text_web():
-    return redirect(url_for('get_recipients_name'))
+    return redirect(url_for('get_recipients_name_open'))
 
-@app.route('/get_recipients_name', methods=['GET']) 
+@app.route('/get_recipients_name_open', methods=['GET']) 
 def get_text():
     return render_template('get_recipients_name.html')
 
