@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
+import sqlite3
 import os
 import rospy
 from collections import deque
@@ -10,7 +11,11 @@ import threading
 from geometry_msgs.msg import PoseStamped
 from move_base_msgs.msg import MoveBaseActionResult
 
+
 app = Flask(__name__)
+
+DB_PATH = os.path.join(os.getcwd(), 'data', 'company.db')
+
 app.secret_key = os.urandom(24)  # 세션 암호화용 비밀키
 robot_scheduling_queue = deque() #로봇의 행동을 담을 큐 (여러사람 작업 처리위해)
 is_with_person = False #로봇이 사람과 만나서 점유된 상태인지에 대한 플래그 변수
@@ -164,34 +169,68 @@ def ROS_robot_is_summoned():
 #user가 물건 다 담고 서랍 닫은후에, 목적지 좌표도 알려주면 실행되는 라우팅
 @app.route('/submit_text', methods=['POST'])
 def submit_text():
-    global is_with_person
-    try:
-        user_text = request.form.get('user_text', '')  # 사용자가 입력한 텍스트 (ID)
+    # 사용자로부터 입력 받은 이름
+    name = request.form['name']
 
-        # user_text가 users 딕셔너리에서 존재하는 사용자 ID인지 확인
-        user_location = users.get(user_text, {}).get('location')
+    # DB에서 해당 이름의 부서 정보와 좌표 조회
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    try:
+        # 직원 정보 조회
+        cursor.execute("SELECT department FROM employees WHERE name = ?", (name,))
         
-        if not user_location:
-            return jsonify({"status": "failure", "message": "User not found"}), 404  # 사용자 찾을 수 없는 경우
-        #목적지 좌표로 position 객체 초기화
+        employee = cursor.fetchone()
+
+        if not employee:
+            return jsonify({'error': '해당 이름의 직원이 존재하지 않습니다.'}), 404
+        else : 
+            rospy.loginfo('DB조회해서 직원의 이름으로 부서 찾기 성공')
+
+        department = employee[0]
+
+        # 부서 좌표 정보 조회
+        cursor.execute("SELECT pos_x, pos_y, ori_z, ori_w FROM departments WHERE department = ?", (department,))
+        coords = cursor.fetchone()
+
+        if not coords:
+            return jsonify({'error': '해당 부서의 좌표 정보가 존재하지 않습니다.'}), 404
+        else :
+            rospy.loginfo('DB조회해서 부서 이름으로 좌표 찾기 성공')
+
+        # 좌표를 기반으로 PoseStamped 객체 초기화
         position = PoseStamped()
         position.header.frame_id = "map"
         position.header.stamp = rospy.Time.now()
-        position.pose.position.x = float(user_location['pos_x'])
-        position.pose.position.y = float(user_location['pos_y'])
-        position.pose.orientation.z = float(user_location['ori_z'])
-        position.pose.orientation.w = float(user_location['ori_w'])
-        
+        position.pose.position.x = coords[0]
+        position.pose.position.y = coords[1]
+        position.pose.orientation.z = coords[2]
+        position.pose.orientation.w = coords[3]
 
-        #robot_scheduling_queue 의 오른쪽에 호출자가 원하는 배송 목적지의 좌표 정보가 담긴 position 객체를 넣어준다.
-        robot_scheduling_queue.append(position)
-        #이제 사람을 떠나니까 is_with_person은 False가 되야함.
-        is_with_person = False
-        return redirect(url_for('index'))
+        # PoseStamped 객체 정보 출력 (f-string 대신 .format() 사용)
+        rospy.loginfo("이름: {}, 부서: {}, 좌표: (x: {}, y: {}, z: {}, w: {})".format(
+            name, department, coords[0], coords[1], coords[2], coords[3]))
 
-    except Exception as e:
-        print("Error: {}".format(e))  # 서버에서 발생한 오류를 로그로 출력
-        return jsonify({"status": "failure", "message": "Error occurred: {e}"}), 500  # 오류를 클라이언트에 반환
+        # 리디렉션 URL을 포함하여 응답
+        return jsonify({
+            'name': name,
+            'department': department,
+            'coordinates': {
+                'pos_x': coords[0],
+                'pos_y': coords[1],
+                'ori_z': coords[2],
+                'ori_w': coords[3]
+            },
+            'message': '좌표가 정상적으로 초기화되었습니다.',
+            'redirect_url': url_for('success')  # 리디렉션 URL
+        })
+
+    except sqlite3.Error as e:
+        return jsonify({'error': 'DB 에러 발생: {}'.format(e)}), 500
+
+    finally:
+        conn.close()
+
 
 if __name__ == '__main__':
     # ROS 스레드 시작, target에 ros_spin(위에보면 rospy.spin() 담겨있음.)적어두면, 아래 세줄로 모든 ros섭스크라이브 콜백들이 쓰레드로 작동함.
