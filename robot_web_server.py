@@ -201,7 +201,7 @@ def get_department_position_from_db(department):
         }
     else:
         # 좌표가 없으면 예외 처리
-        raise ValueError(f'Coordinates for department {department} not found in the database')
+        raise ValueError('부서는 존재하나 해당 부서에 해당하는 좌표값이 존재하지 않습니다!')
 
 def get_position_for_user_from_session(session):
     """
@@ -254,7 +254,7 @@ def summon_robot():
             position.pose.orientation.w
         ))
 
-        
+
 
         if cnt == 0:  # 첫 번째 호출 시 무지성 이동
             move_pub.publish(position)
