@@ -54,7 +54,7 @@ def can_robot_go():
     return False
 
 
-rospy.init_node('flask_server', anonymous=True)
+
 move_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=1)
 rospy.Subscriber('/robot_moving_status',Bool, robot_scheduler)
 
@@ -213,7 +213,6 @@ def submit_text():
 
         ## 이 부분 que에 append 하는거 넣어야함. 
 
-
         # 리디렉션 URL을 포함하여 응답
         return jsonify({
             'name': name,
@@ -238,6 +237,7 @@ def submit_text():
 
 
 if __name__ == '__main__':
+    rospy.init_node('flask_server', anonymous=True)
     # ROS 스레드 시작, target에 ros_spin(위에보면 rospy.spin() 담겨있음.)적어두면, 아래 세줄로 모든 ros섭스크라이브 콜백들이 쓰레드로 작동함.
     ros_thread = threading.Thread(target=ros_spin)
     ros_thread.daemon = True  # 메인 스레드 종료 시 함께 종료
