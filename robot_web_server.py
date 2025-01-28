@@ -75,21 +75,39 @@ def index():
     else:
         return redirect(url_for('login'))
 
+def verify_user_credentials(user_id, password):
+    """
+    데이터베이스에서 ID와 비밀번호를 확인합니다.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # 데이터베이스에서 사용자 정보 조회
+    cursor.execute('SELECT password FROM employees WHERE id = ?', (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+
+    # 사용자 존재 여부 및 비밀번호 검증
+    if user is None:
+        return False  # 사용자가 존재하지 않음
+    stored_password = user[0]
+    return stored_password == password  # 비밀번호 비교 (평문 저장 기준)
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user_id = request.form['user_id']  # 로그인 ID
-        password = request.form['password']  # 로그인 비밀번호
+        user_id = request.form['user_id']  # 입력된 ID
+        password = request.form['password']  # 입력된 비밀번호
 
-        # 사용자가 존재하는지 확인하고 비밀번호 체크
-        user = users.get(user_id)
-        if user and check_password_hash(user['password'], password):
+        # ID와 비밀번호 검증
+        if verify_user_credentials(user_id, password):
             session['user_id'] = user_id  # 세션에 사용자 ID 저장
-            return redirect(url_for('index'))  # 로그인 후 메인 페이지로 리디렉션
+            return redirect(url_for('index'))  # 메인 페이지로 리디렉션
         else:
-            return 'Invalid credentials', 401  # 로그인 실패
-    rospy.loginfo("로그인하지 않은 유저가 서버에 요청을 보냈습니다. 로그인 페이지를 띄워주겠습니다.")
-    return render_template('ROS_login.html')  # 로그인 페이지로 이동
+            return 'Invalid credentials', 401  # 로그인 실패 메시지 및 401 상태 코드
+
+    # GET 요청의 경우 로그인 페이지 반환
+    return render_template('ROS_login.html')
 
 
 @app.route('/redirect_summon_robot_web', methods=['GET'])
