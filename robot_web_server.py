@@ -104,6 +104,7 @@ def login():
         # ID와 비밀번호 검증
         if verify_user_credentials(user_id, password):
             session['user_id'] = user_id  # 세션에 사용자 ID 저장
+            rospy.loginfo("user의 로컬 컴퓨터에 ")
             return redirect(url_for('index'))  # 메인 페이지로 리디렉션
         else:
             return 'Invalid credentials', 401  # 로그인 실패 메시지 및 401 상태 코드
@@ -146,7 +147,91 @@ def item_received():
 def redirect_to_index():
     return redirect(url_for('index'))
 
+#---------------------------------------------DB조회 메소드---------------------------------------------------#
+# 사용자의 부서를 찾는 함수
+def get_user_department_from_db(user_id):
+    """
+    주어진 user_id에 대해 DB에서 부서 정보를 조회하고 해당 부서를 반환합니다.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
 
+    # user_id에 해당하는 사용자의 부서 정보 가져오기
+    cursor.execute('''
+        SELECT department
+        FROM employees
+        WHERE id = ?
+    ''', (user_id,))
+
+    result = cursor.fetchone()
+    conn.close()
+
+    if result:
+        # 부서가 존재하면 반환
+        return result[0]
+    else:
+        # 부서가 없으면 예외 처리
+        raise ValueError('User department not found in the database')
+
+# 부서에 해당하는 좌표를 찾는 함수
+def get_department_position_from_db(department):
+    """
+    주어진 부서에 대해 DB에서 좌표 정보를 조회하고 해당 좌표를 반환합니다.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # 부서에 해당하는 좌표 정보 가져오기
+    cursor.execute('''
+        SELECT pos_x, pos_y, ori_z, ori_w
+        FROM departments
+        WHERE department = ?
+    ''', (department,))
+
+    result = cursor.fetchone()
+    conn.close()
+
+    if result:
+        # 좌표가 존재하면 반환
+        return {
+            'pos_x': result[0],
+            'pos_y': result[1],
+            'ori_z': result[2],
+            'ori_w': result[3]
+        }
+    else:
+        # 좌표가 없으면 예외 처리
+        raise ValueError(f'Coordinates for department {department} not found in the database')
+
+def get_position_for_user_from_session(session):
+    """
+    세션에서 user_id를 가져와 DB에서 부서를 찾고, 해당 부서에 맞는 좌표를 조회하여
+    position 객체를 생성하여 반환하는 함수입니다.
+    """
+    # 세션에서 user_id 가져오기
+    user_id = session.get('user_id')
+
+    if not user_id:
+        raise ValueError('User not logged in')
+
+    # DB에서 user_id에 해당하는 부서 정보 가져오기
+    department = get_user_department_from_db(user_id)
+
+    # DB에서 부서에 해당하는 좌표 정보 가져오기
+    department_location = get_department_position_from_db(department)
+
+    # 위치 정보를 바탕으로 PoseStamped 객체 생성
+    position = PoseStamped()
+    position.header.frame_id = "map"
+    position.header.stamp = rospy.Time.now()
+    position.pose.position.x = float(department_location['pos_x'])
+    position.pose.position.y = float(department_location['pos_y'])
+    position.pose.orientation.z = float(department_location['ori_z'])
+    position.pose.orientation.w = float(department_location['ori_w'])
+    
+    return position
+
+#---------------------------------------------DB조회 메소드---------------------------------------------------#
 # user가 웹에서 호출 버튼 누름 -> js가 /summon_robot으로 요청 보냄, 호출자의 좌표와 함께 ->
 # 아래 함수가 실행되어 호출자의 좌표가 큐에 쌓임
 @app.route('/summon_robot', methods=['POST'])
@@ -157,25 +242,27 @@ def summon_robot():
         if 'user_id' not in session:
             raise ValueError('User ID not found in session.')
 
-        user_id = session['user_id']  # 자바스크립트에서 전송된 user_id
-        user_location = users.get(user_id, {}).get('location')  # 해당 사용자의 위치 찾기
+        user_id = session['user_id']  # 세션에서 user_id를 가져옵니다.
 
-        if not user_location:
-            raise ValueError('User location not found')
-        position = PoseStamped()
-        position.header.frame_id = "map"
-        position.header.stamp = rospy.Time.now()
-        position.pose.position.x = float(user_location['pos_x'])
-        position.pose.position.y = float(user_location['pos_y'])
-        position.pose.orientation.z = float(user_location['ori_z'])
-        position.pose.orientation.w = float(user_location['ori_w'])
+        # user_id로부터 부서 정보를 찾고 해당 부서의 좌표를 가져옵니다.
+        position = get_position_for_user_from_session(session)
         
-        if cnt == 0: #임시 땜방 셋업 - 일단 첫번째 호출로 무지성 이동시킴.
+        rospy.loginfo("로봇을 호출한 user의 position 정보 x: {}, y: {}, z: {}, w: {}".format(
+            position.pose.position.x,
+            position.pose.position.y,
+            position.pose.orientation.z,
+            position.pose.orientation.w
+        ))
+
+        
+
+        if cnt == 0:  # 첫 번째 호출 시 무지성 이동
             move_pub.publish(position)
-            cnt +=1
+            cnt += 1
         else:
-            # 첫번째 호출 무지성 이동후부터는 얘가 실행됨. 호출자가 '호출'누를때마다 호출자의 좌표가 큐에쌓임.
-            robot_scheduling_queue.appendleft(position) 
+            # 첫 번째 호출 이후에는 호출자의 좌표가 큐에 쌓입니다.
+            robot_scheduling_queue.appendleft(position)
+
         return redirect(url_for('ROS_robot_is_summoned'))
 
     except Exception as e:
