@@ -254,7 +254,8 @@ def summon_robot():
             position.pose.orientation.w
         ))
 
-
+        ######################석권!!!!!!!!!!!여기가 세션기반으로 DB조회해서 client의 좌표로 position 초기화한 부분이야
+        #######client의 좌표담긴 position객체 쓰고싶으면 여기 바로위에있는 position객체 쓰면돼!!!!!!!!!!!!!!!!!!!!1
 
         if cnt == 0:  # 첫 번째 호출 시 무지성 이동
             move_pub.publish(position)
