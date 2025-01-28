@@ -12,6 +12,7 @@ function submitForm(event) {
         },
         body: `name=${name}`
     })
+    console.log("fetch성공했습니다!")
     .then(response => response.json())
     .then(data => {
         if (data.redirect_url) {
