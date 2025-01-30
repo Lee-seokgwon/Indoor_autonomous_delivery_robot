@@ -10,13 +10,16 @@ from std_msgs.msg import Int32, Bool
 import threading
 from geometry_msgs.msg import PoseStamped
 from move_base_msgs.msg import MoveBaseActionResult
+import logging
+
 
 
 app = Flask(__name__)
 
+app.secret_key = os.urandom(24)  # 세션 암호화용 비밀키
+
 DB_PATH = os.path.join(os.getcwd(), 'data', 'company.db')
 
-app.secret_key = os.urandom(24)  # 세션 암호화용 비밀키
 robot_scheduling_queue = deque() #로봇의 행동을 담을 큐 (여러사람 작업 처리위해)
 is_with_person = False #로봇이 사람과 만나서 점유된 상태인지에 대한 플래그 변수
 cnt = 0
@@ -32,17 +35,17 @@ users = {
 def robot_scheduler(msg): 
     global is_with_person
     if msg.data==True: #robot_moving_status_publisher 노드에서 받아온 로봇 움직임 값 (status 1이면 True, 3이면 False)
-        rospy.loginfo("로봇이 이동중입니다.")
+        logger.info("로봇이 이동중입니다.")
     else:
         # 로봇이 이동 중이지 않으면 큐를 확인하고 작업을 처리
         if can_robot_go():
             position = robot_scheduling_queue.popleft()
             is_with_person = True
             move_pub.publish(position)  # 로봇에 이동 명령을 발행
-            rospy.loginfo("큐에 담겨있던 이동명령을 발행합니다.")
+            logger.info("큐에 담겨있던 이동명령을 발행합니다.")
         else:
             # 큐가 비었으면 대기
-            rospy.loginfo("큐가 비어있습니다.")
+            logger.info("큐가 비어있습니다.")
 
 #-------------------------- 콜백 함수 정의부 ------------------------#
 
@@ -89,9 +92,9 @@ def verify_user_credentials(user_id, password):
 
     # 사용자 존재 여부 및 비밀번호 검증
     if user is None:
-        rospy.loginfo("user가 잘못된 id 혹은 password를 입력했습니다.")
+        logger.info("user가 잘못된 id 혹은 password를 입력했습니다.")
         return False  # 사용자가 존재하지 않음
-    rospy.loginfo("user가 로그인에 성공하였습니다!.")
+    logger.info("user가 로그인에 성공하였습니다!.")
     stored_password = user[0]
     return stored_password == password  # 비밀번호 비교 (평문 저장 기준)
 
@@ -104,7 +107,8 @@ def login():
         # ID와 비밀번호 검증
         if verify_user_credentials(user_id, password):
             session['user_id'] = user_id  # 세션에 사용자 ID 저장
-            rospy.loginfo("user의 로컬 컴퓨터에 ")
+            logger.info("user의 로컬 컴퓨터에 stored session cookie 를 저장하였습니다.")
+          
             return redirect(url_for('index'))  # 메인 페이지로 리디렉션
         else:
             return 'Invalid credentials', 401  # 로그인 실패 메시지 및 401 상태 코드
@@ -238,6 +242,7 @@ def get_position_for_user_from_session(session):
 def summon_robot():
     global is_with_person
     global cnt
+    logger.info("sumon_robot is routed")
     try:
         if 'user_id' not in session:
             raise ValueError('User ID not found in session.')
@@ -247,7 +252,7 @@ def summon_robot():
         # user_id로부터 부서 정보를 찾고 해당 부서의 좌표를 가져옵니다.
         position = get_position_for_user_from_session(session)
         
-        rospy.loginfo("로봇을 호출한 user의 position 정보 x: {}, y: {}, z: {}, w: {}".format(
+        logger.info("로봇을 호출한 user의 position 정보 x: {}, y: {}, z: {}, w: {}".format(
             position.pose.position.x,
             position.pose.position.y,
             position.pose.orientation.z,
@@ -264,6 +269,8 @@ def summon_robot():
             # 첫 번째 호출 이후에는 호출자의 좌표가 큐에 쌓입니다.
             robot_scheduling_queue.appendleft(position)
 
+
+        logger.info("Redirecting to ROS_robot_is_summoned,,,,,,,,")
         return redirect(url_for('ROS_robot_is_summoned'))
 
     except Exception as e:
@@ -272,6 +279,7 @@ def summon_robot():
 
 @app.route('/ROS_robot_is_summoned')
 def ROS_robot_is_summoned():
+    logger.info("will render ROS_robot_is_summoned.html")
     return render_template('ROS_robot_is_summoned.html')   
 
 #user가 물건 다 담고 서랍 닫은후에, 목적지 좌표도 알려주면 실행되는 라우팅
@@ -294,7 +302,7 @@ def submit_text():
         if not employee:
             return jsonify({'error': '해당 이름의 직원이 존재하지 않습니다.'}), 404
         else : 
-            rospy.loginfo('DB조회해서 직원의 이름으로 부서 찾기 성공')
+            logger.info('DB조회해서 직원의 이름으로 부서 찾기 성공')
 
         department = employee[0]
 
@@ -306,7 +314,7 @@ def submit_text():
         if not coords:
             return jsonify({'error': '해당 부서의 좌표 정보가 존재하지 않습니다.'}), 404
         else :
-            rospy.loginfo('DB조회해서 부서 이름으로 좌표 찾기 성공')
+            logger.info('DB조회해서 부서 이름으로 좌표 찾기 성공')
 
         # 좌표를 기반으로 PoseStamped 객체 초기화
         position = PoseStamped()
@@ -323,7 +331,7 @@ def submit_text():
         z = position.pose.orientation.z
         w = position.pose.orientation.w
 
-        rospy.loginfo("서버의 DB 조회 성공 !!! 이름: {}, 부서: {}, 좌표: (x: {}, y: {}, z: {}, w: {})".format(
+        logger.info("서버의 DB 조회 성공 !!! 이름: {}, 부서: {}, 좌표: (x: {}, y: {}, z: {}, w: {})".format(
             name, department, x, y, z, w))
         
         ## 이 부분 que에 append 하는거 넣어야함. 
@@ -344,7 +352,7 @@ def submit_text():
         
 
     except sqlite3.Error as e:
-        rospy.loginfo("DB조회 과정에서 오류 발생")
+        logger.info("DB조회 과정에서 오류 발생")
         return jsonify({'error': 'DB 에러 발생: {}'.format(e)}), 500
 
     finally:
@@ -352,11 +360,37 @@ def submit_text():
 
 
 if __name__ == '__main__':
+     #-----------------------------------------LOGGING SYSTEM------------------------------------------------------
+     # 로깅 설정
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+     #-----------------------------------------LOGGING SYSTEM------------------------------------------------------
+
+    
+    
+    
+    
     rospy.init_node('flask_server', anonymous=True)
+    logger.info("ROS Node Initialized!")
+
+
+
+
+
+     #-----------------------------------------LOGGING SYSTEM------------------------------------------------------
+    # 로깅 재설정 (ROS 노드가 로깅을 덮어쓰는 문제 해결하기위해)
+    logger.handlers = []  # 기존 핸들러 제거
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    
+     #-----------------------------------------LOGGING SYSTEM------------------------------------------------------
+
     # ROS 스레드 시작, target에 ros_spin(위에보면 rospy.spin() 담겨있음.)적어두면, 아래 세줄로 모든 ros섭스크라이브 콜백들이 쓰레드로 작동함.
     ros_thread = threading.Thread(target=ros_spin)
     ros_thread.daemon = True  # 메인 스레드 종료 시 함께 종료
     ros_thread.start()
 
+    logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!서버가 실행됩니다!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")  
     # Flask 서버 실행
     run_flask()
+    
