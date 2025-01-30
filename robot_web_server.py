@@ -49,6 +49,8 @@ def robot_scheduler(msg):
 
 #-------------------------- 콜백 함수 정의부 ------------------------#
 
+
+#----------------------------------------------------------------------method definition------------------------------------------------------------------
 def can_robot_go():
     global is_with_person
      #robot_scheduling_queue가 1개라도 채워져있고, 로봇이 사람과 만나지 않은 경우 True 반환
@@ -56,28 +58,7 @@ def can_robot_go():
         return True
     return False
 
-
-
-move_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=1)
-rospy.Subscriber('/robot_moving_status',Bool, robot_scheduler)
-
-
-def run_flask():
-    """Flask 서버 실행"""
-    app.run(host='0.0.0.0', port=5000, debug=True)
-
-def ros_spin():
-    rospy.spin()
-
-
-@app.route('/')
-def index():
-    if 'user_id' in session:
-        user_id = session['user_id']
-        return render_template('ROS_mode_select.html', user_id=user_id)
-    else:
-        return redirect(url_for('login'))
-
+#---------------------------------------------DB조회 메소드(START)---------------------------------------------------#
 def verify_user_credentials(user_id, password):
     """
     데이터베이스에서 ID와 비밀번호를 확인합니다.
@@ -98,60 +79,7 @@ def verify_user_credentials(user_id, password):
     stored_password = user[0]
     return stored_password == password  # 비밀번호 비교 (평문 저장 기준)
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        user_id = request.form['user_id']  # 입력된 ID
-        password = request.form['password']  # 입력된 비밀번호
 
-        # ID와 비밀번호 검증
-        if verify_user_credentials(user_id, password):
-            session['user_id'] = user_id  # 세션에 사용자 ID 저장
-            logger.info("user의 로컬 컴퓨터에 stored session cookie 를 저장하였습니다.")
-          
-            return redirect(url_for('index'))  # 메인 페이지로 리디렉션
-        else:
-            return 'Invalid credentials', 401  # 로그인 실패 메시지 및 401 상태 코드
-
-    # GET 요청의 경우 로그인 페이지 반환
-    return render_template('ROS_login.html')
-
-
-@app.route('/redirect_summon_robot_web', methods=['GET'])
-def redirect_summon_robot_web():
-    return redirect(url_for('summon_robot_web_open'))
-
-@app.route('/summon_robot_web_open', methods=['GET'])
-def summon_robot_web_open():
-    return render_template('ROS_summon_web.html')
-
-@app.route('/redirect_pick_up_item_web', methods=['GET'])
-def redirect_pick_up_item_web():
-    return redirect(url_for('pick_up_item_web_open'))
-
-@app.route('/pick_up_item_web_open', methods=['GET'])
-def pick_up_item_web_open():
-    return render_template('ROS_pick_up_item_web.html')
-
-@app.route('/redirect_get_text_web', methods=['GET'])
-def redirect_get_text_web():
-    return redirect(url_for('get_recipients_name_open'))
-
-@app.route('/get_recipients_name_open', methods=['GET']) 
-def get_text():
-    return render_template('get_recipients_name.html')
-
-@app.route('/item_received', methods=['GET'])
-def item_received():
-    global is_with_person
-    is_with_person = False
-    return redirect(url_for('index'))
-
-@app.route('/redirect_to_index', methods=['GET'])
-def redirect_to_index():
-    return redirect(url_for('index'))
-
-#---------------------------------------------DB조회 메소드---------------------------------------------------#
 # 사용자의 부서를 찾는 함수
 def get_user_department_from_db(user_id):
     """
@@ -235,7 +163,86 @@ def get_position_for_user_from_session(session):
     
     return position
 
-#---------------------------------------------DB조회 메소드---------------------------------------------------#
+
+def run_flask():
+    """Flask 서버 실행"""
+    app.run(host='0.0.0.0', port=5000, debug=True)
+
+def ros_spin():
+    rospy.spin()
+
+#---------------------------------------------DB조회 메소드(FINISH)---------------------------------------------------#
+
+#---------------------------------------------Setting up Pub&Sub-------------------------------------------------#
+move_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=1)
+rospy.Subscriber('/robot_moving_status',Bool, robot_scheduler)
+#---------------------------------------------Setting up Pub&Sub-------------------------------------------------#
+
+
+
+@app.route('/')
+def index():
+    if 'user_id' in session:
+        user_id = session['user_id']
+        return render_template('ROS_mode_select.html', user_id=user_id)
+    else:
+        return redirect(url_for('login'))
+
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        user_id = request.form['user_id']  # 입력된 ID
+        password = request.form['password']  # 입력된 비밀번호
+
+        # ID와 비밀번호 검증
+        if verify_user_credentials(user_id, password):
+            session['user_id'] = user_id  # 세션에 사용자 ID 저장
+            logger.info("user의 로컬 컴퓨터에 stored session cookie 를 저장하였습니다.")
+          
+            return redirect(url_for('index'))  # 메인 페이지로 리디렉션
+        else:
+            return 'Invalid credentials', 401  # 로그인 실패 메시지 및 401 상태 코드
+
+    # GET 요청의 경우 로그인 페이지 반환
+    return render_template('ROS_login.html')
+
+
+@app.route('/redirect_summon_robot_web', methods=['GET'])
+def redirect_summon_robot_web():
+    return redirect(url_for('summon_robot_web_open'))
+
+@app.route('/summon_robot_web_open', methods=['GET'])
+def summon_robot_web_open():
+    return render_template('ROS_summon_web.html')
+
+@app.route('/redirect_pick_up_item_web', methods=['GET'])
+def redirect_pick_up_item_web():
+    return redirect(url_for('pick_up_item_web_open'))
+
+@app.route('/pick_up_item_web_open', methods=['GET'])
+def pick_up_item_web_open():
+    return render_template('ROS_pick_up_item_web.html')
+
+@app.route('/redirect_get_text_web', methods=['GET'])
+def redirect_get_text_web():
+    return redirect(url_for('get_recipients_name_open'))
+
+@app.route('/get_recipients_name_open', methods=['GET']) 
+def get_text():
+    return render_template('get_recipients_name.html')
+
+@app.route('/item_received', methods=['GET'])
+def item_received():
+    global is_with_person
+    is_with_person = False
+    return redirect(url_for('index'))
+
+@app.route('/redirect_to_index', methods=['GET'])
+def redirect_to_index():
+    return redirect(url_for('index'))
+
 # user가 웹에서 호출 버튼 누름 -> js가 /summon_robot으로 요청 보냄, 호출자의 좌표와 함께 ->
 # 아래 함수가 실행되어 호출자의 좌표가 큐에 쌓임
 @app.route('/summon_robot', methods=['POST'])
@@ -371,15 +378,9 @@ if __name__ == '__main__':
     logger.setLevel(logging.DEBUG)
      #-----------------------------------------LOGGING SYSTEM------------------------------------------------------
 
-    
-    
-    
-    
+
     rospy.init_node('flask_server', anonymous=True)
     logger.info("ROS Node Initialized!")
-
-
-
 
 
      #-----------------------------------------LOGGING SYSTEM------------------------------------------------------
