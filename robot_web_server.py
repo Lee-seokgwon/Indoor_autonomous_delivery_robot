@@ -271,11 +271,15 @@ def summon_robot():
 
 
         logger.info("Redirecting to ROS_robot_is_summoned,,,,,,,,")
-        return redirect(url_for('ROS_robot_is_summoned'))
+        return jsonify({'redirect': url_for('ROS_robot_is_summoned')})  # 🔥 JSON 응답
+        
+
+        #return redirect(url_for('ROS_robot_is_summoned'))
 
     except Exception as e:
         print("Error: {}".format(e))  # 서버에서 발생한 오류를 로그로 출력
-        return 'Error occurred: {}'.format(e), 500  # 오류를 클라이언트에 반환
+        return jsonify({'error': str(e)}), 500  # 🔥 JSON 에러 응답
+        #return 'Error occurred: {}'.format(e), 500  # 오류를 클라이언트에 반환
 
 @app.route('/ROS_robot_is_summoned')
 def ROS_robot_is_summoned():
