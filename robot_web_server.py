@@ -33,9 +33,10 @@ users = {
 #-------------------------- 콜백 함수 정의부 ------------------------#
 
 #얘는 계속해서 호출된다는 것을 잊지말자
-def robot_scheduler(msg): 
+def robot_scheduler(moving): 
     global is_submit_done
-    if msg.data==True: #robot_moving_status_publisher 노드에서 받아온 로봇 움직임 값 (status 1이면 True, 3이면 False)
+    global cnt
+    if moving.data==True: #robot_moving_status_publisher 노드에서 받아온 로봇 움직임 값 (status 1이면 True, 3이면 False)
         logger.info("로봇이 이동중입니다.")
     elif task_queue and is_submit_done:
         # 로봇이 이동 중이지 않으면 큐를 확인하고 작업을 처리
@@ -47,6 +48,7 @@ def robot_scheduler(msg):
         # 로봇이 대기 상태이고, 모든 작업이 끝났으며, summoner_queue 초기화 조건을 만족할 때
         summoner_queue.clear()
         is_submit_done = False #마지막 수령인이 수령확인후 True가 되버리니까, False로 돌려줘야함함
+        cnt = 0
         rospy.loginfo("모든 작업이 완료되었습니다. summoner_queue를 초기화합니다.")
     else:
         # 큐가 비었으면 대기
@@ -206,7 +208,7 @@ def login():
     # GET 요청의 경우 로그인 페이지 반환
     return render_template('ROS_login.html')
 
-
+#여기 라우터도 잘 보고 js로 json 넘겨주는 경우이면 렌더 템플릿만 남기면 될듯.
 @app.route('/redirect_summon_robot_web', methods=['GET'])
 def redirect_summon_robot_web():
     return redirect(url_for('summon_robot_web_open'))
@@ -245,7 +247,6 @@ def redirect_to_index():
 # 아래 함수가 실행되어 호출자의 좌표가 큐에 쌓임
 @app.route('/summon_robot', methods=['POST'])
 def summon_robot():
-    global is_submit_done
     global cnt
     logger.info("sumon_robot is routed")
     try:
@@ -269,23 +270,24 @@ def summon_robot():
 
         if cnt == 0:  # 첫 번째 호출 시 무지성 이동
             move_pub.publish(position)
+            summoner_queue.append(position)
             cnt += 1
+            return jsonify({'redirect': url_for('ROS_robot_is_summoned')})  # 🔥 JSON 응답
         else:
             # 첫 번째 호출 이후에는 호출자의 좌표가 큐에 쌓입니다.
             if len(summoner_queue) == 2:
                 return jsonify({'redirect': url_for('ROS_no_more_summon')})  # 🔥 JSON 응답
-
-
-        logger.info("Redirecting to ROS_robot_is_summoned,,,,,,,,")
-        return jsonify({'redirect': url_for('ROS_robot_is_summoned')})  # 🔥 JSON 응답
-        
-
-        #return redirect(url_for('ROS_robot_is_summoned'))
-
+            else:
+                task_queue.appendleft(position)
+                summoner_queue.append(position)
+                logger.info("Redirecting to ROS_robot_is_summoned,,,,,,,,")
+                return jsonify({'redirect': url_for('ROS_robot_is_summoned')})  # 🔥 JSON 응답
+    
     except Exception as e:
         print("Error: {}".format(e))  # 서버에서 발생한 오류를 로그로 출력
         return jsonify({'error': str(e)}), 500  # 🔥 JSON 에러 응답
         #return 'Error occurred: {}'.format(e), 500  # 오류를 클라이언트에 반환
+
 
 @app.route('/ROS_robot_is_summoned')
 def ROS_robot_is_summoned():
@@ -300,6 +302,7 @@ def ROS_robot_is_summoned():
 #user가 물건 다 담고 서랍 닫은후에, 목적지 좌표도 알려주면 실행되는 라우팅
 @app.route('/submit_text', methods=['POST'])
 def submit_text():
+    global is_submit_done
     # 사용자로부터 입력 받은 이름
     name = request.form['name']
 
@@ -349,7 +352,8 @@ def submit_text():
         logger.info("서버의 DB 조회 성공 !!! 이름: {}, 부서: {}, 좌표: (x: {}, y: {}, z: {}, w: {})".format(
             name, department, x, y, z, w))
         
-        ## 이 부분 que에 append 하는거 넣어야함. 
+        task_queue.append(position)
+        is_submit_done = True
 
         # 리디렉션 URL을 포함하여 응답
         return jsonify({
