@@ -295,7 +295,7 @@ def ROS_robot_is_summoned():
     return render_template('ROS_robot_is_summoned.html')  
  
 @app.route('/ROS_no_more_summon')
-def ROS_robot_is_summoned():
+def ROS_no_more_summon():
     logger.info("will render ROS_robot_is_summoned.html")
     return render_template('ROS_robot_is_summoned.html')  
 
