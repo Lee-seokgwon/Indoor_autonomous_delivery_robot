@@ -208,7 +208,7 @@ def login():
     # GET 요청의 경우 로그인 페이지 반환
     return render_template('ROS_login.html')
 
-#여기 라우터도 잘 보고 js로 json 넘겨주는 경우이면 렌더 템플릿만 남기면 될듯.
+#여기 라우터도 잘 보고 js로 json 넘겨주는 경우이면 렌더 템플릿만 남기면 될듯. 아 시발 너무 복잡하게 엮여있어서 그냥 나중에 하자. 일단 잘된다니까 놔두자!
 @app.route('/redirect_summon_robot_web', methods=['GET'])
 def redirect_summon_robot_web():
     return redirect(url_for('summon_robot_web_open'))
