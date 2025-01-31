@@ -20,43 +20,41 @@ app.secret_key = os.urandom(24)  # 세션 암호화용 비밀키
 
 DB_PATH = os.path.join(os.getcwd(), 'data', 'company.db')
 
-robot_scheduling_queue = deque() #로봇의 행동을 담을 큐 (여러사람 작업 처리위해)
-is_with_person = False #로봇이 사람과 만나서 점유된 상태인지에 대한 플래그 변수
+task_queue = deque() #로봇의 행동을 담을 큐 (여러사람 작업 처리위해)
+is_submit_done = False #로봇이 사람과 만나서 점유된 상태인지에 대한 플래그 변수
+summoner_queue = deque()
 cnt = 0
 # 예시 사용자 데이터 (실제로는 DB에서 데이터를 가져오거나 다른 방법을 사용)
 users = {
     'user1': {'password': generate_password_hash('password1'), 'location': {'pos_x': 0.0616436451674, 'pos_y': 1.57818627357, 'ori_z': 0.898063068045, 'ori_w': 0.439866713691}},
     'user2': {'password': generate_password_hash('password2'), 'location': {'pos_x': -0.0987980738282, 'pos_y': 0.411867380142, 'ori_z': 0.315396049112, 'ori_w': 0.948960132042}},
-}
+}#이거 이제 삭제해도 될듯. db구현했으니!
 
 #-------------------------- 콜백 함수 정의부 ------------------------#
 
 #얘는 계속해서 호출된다는 것을 잊지말자
 def robot_scheduler(msg): 
-    global is_with_person
+    global is_submit_done
     if msg.data==True: #robot_moving_status_publisher 노드에서 받아온 로봇 움직임 값 (status 1이면 True, 3이면 False)
         logger.info("로봇이 이동중입니다.")
-    else:
+    elif task_queue and is_submit_done:
         # 로봇이 이동 중이지 않으면 큐를 확인하고 작업을 처리
-        if can_robot_go():
-            position = robot_scheduling_queue.popleft()
-            is_with_person = True
-            move_pub.publish(position)  # 로봇에 이동 명령을 발행
-            logger.info("큐에 담겨있던 이동명령을 발행합니다.")
-        else:
-            # 큐가 비었으면 대기
-            logger.info("큐가 비어있습니다.")
+        position = task_queue.popleft()
+        move_pub.publish(position)  # 로봇에 이동 명령을 발행
+        rospy.loginfo("큐에 담겨있던 이동명령을 발행합니다.")
+        is_submit_done = False
+    elif not task_queue and is_submit_done and summoner_queue:
+        # 로봇이 대기 상태이고, 모든 작업이 끝났으며, summoner_queue 초기화 조건을 만족할 때
+        summoner_queue.clear()
+        is_submit_done = False #마지막 수령인이 수령확인후 True가 되버리니까, False로 돌려줘야함함
+        rospy.loginfo("모든 작업이 완료되었습니다. summoner_queue를 초기화합니다.")
+    else:
+        # 큐가 비었으면 대기
+        rospy.loginfo("로봇이 submit 대기중입니다.")
 
 #-------------------------- 콜백 함수 정의부 ------------------------#
 
 
-#----------------------------------------------------------------------method definition------------------------------------------------------------------
-def can_robot_go():
-    global is_with_person
-     #robot_scheduling_queue가 1개라도 채워져있고, 로봇이 사람과 만나지 않은 경우 True 반환
-    if robot_scheduling_queue and not is_with_person:
-        return True
-    return False
 
 #---------------------------------------------DB조회 메소드(START)---------------------------------------------------#
 def verify_user_credentials(user_id, password):
@@ -235,8 +233,8 @@ def get_text():
 
 @app.route('/item_received', methods=['GET'])
 def item_received():
-    global is_with_person
-    is_with_person = False
+    global is_submit_done
+    is_submit_done = True
     return redirect(url_for('index'))
 
 @app.route('/redirect_to_index', methods=['GET'])
@@ -247,7 +245,7 @@ def redirect_to_index():
 # 아래 함수가 실행되어 호출자의 좌표가 큐에 쌓임
 @app.route('/summon_robot', methods=['POST'])
 def summon_robot():
-    global is_with_person
+    global is_submit_done
     global cnt
     logger.info("sumon_robot is routed")
     try:
@@ -274,7 +272,8 @@ def summon_robot():
             cnt += 1
         else:
             # 첫 번째 호출 이후에는 호출자의 좌표가 큐에 쌓입니다.
-            robot_scheduling_queue.appendleft(position)
+            if len(summoner_queue) == 2:
+                return jsonify({'redirect': url_for('ROS_no_more_summon')})  # 🔥 JSON 응답
 
 
         logger.info("Redirecting to ROS_robot_is_summoned,,,,,,,,")
@@ -291,7 +290,12 @@ def summon_robot():
 @app.route('/ROS_robot_is_summoned')
 def ROS_robot_is_summoned():
     logger.info("will render ROS_robot_is_summoned.html")
-    return render_template('ROS_robot_is_summoned.html')   
+    return render_template('ROS_robot_is_summoned.html')  
+ 
+@app.route('/ROS_no_more_summon')
+def ROS_robot_is_summoned():
+    logger.info("will render ROS_robot_is_summoned.html")
+    return render_template('ROS_robot_is_summoned.html')  
 
 #user가 물건 다 담고 서랍 닫은후에, 목적지 좌표도 알려주면 실행되는 라우팅
 @app.route('/submit_text', methods=['POST'])
